@@ -1,40 +1,36 @@
-import os
+import os, threading
+from flask import Flask
 import telebot
 from groq import Groq
-import traceback
 
-# بياخد المفاتيح من Render مشان ما ينسرقو
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GROQ_KEY = os.environ.get("GROQ_KEY")
 
-if not BOT_TOKEN or not GROQ_KEY:
-    print("حط BOT_TOKEN و GROQ_KEY بـ Environment Variables بـ Render!")
-
 bot = telebot.TeleBot(BOT_TOKEN)
 client = Groq(api_key=GROQ_KEY)
+SYSTEM = "انت Bestie رفيق سوري عامي قصير."
 
-SYSTEM = "انت Bestie رفيق سوري بتحكي عامي شامي قصير ومهضوم. اذا حدا سألك شي طبي قل بدو دكتور مختص."
-
-def ask(text):
-    r = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role":"system","content":SYSTEM},{"role":"user","content":text}]
-    )
+def ask(t):
+    r = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role":"system","content":SYSTEM},{"role":"user","content":t}])
     return r.choices[0].message.content
 
 @bot.message_handler(commands=['start'])
-def start(m):
-    bot.send_message(m.chat.id, "هلا أنا Bestie 🌙\nرفيقك اللي بيسمعك بلا ملل\n\nاحكيلي شو مضايقك اليوم؟")
+def s(m): bot.send_message(m.chat.id, "هلا أنا Bestie 🌙 شغال 24 ساعة!")
 
 @bot.message_handler(func=lambda m: True)
-def all_msg(m):
+def a(m):
     try:
         bot.send_chat_action(m.chat.id, 'typing')
-        ans = ask(m.text)
-        bot.send_message(m.chat.id, ans)
-    except Exception as e:
-        print(traceback.format_exc())
-        bot.send_message(m.chat.id, "دقيقة علق مخي، جرب مرة تانية 😅")
+        bot.send_message(m.chat.id, ask(m.text))
+    except Exception as e: print(e)
 
-print("Bestie شغال...")
-bot.infinity_polling()
+# موقع وهمي مشان Render يفكرو شغال
+app = Flask(__name__)
+@app.route('/')
+def home(): return "Bestie is alive!"
+
+def run_bot(): bot.infinity_polling()
+threading.Thread(target=run_bot).start()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
